@@ -1,0 +1,9 @@
+[package]
+name = "game-physics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.20.1"
+rand = "0.10.3"
+
