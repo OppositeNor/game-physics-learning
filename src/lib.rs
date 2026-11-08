@@ -19,7 +19,7 @@ impl Scene {
     }
 
     pub fn initialize(&mut self) {
-        let body = Body {
+        let body = bodies::Body {
             position: Vec3::new(0.0, 1.0, 0.0),
             orientation: Quat::from_xyzw(0.0, 0.0, 0.0, 1.0),
             linear_velocity: Vec3::ZERO,
@@ -27,7 +27,7 @@ impl Scene {
             shape: Box::new(Sphere::new(1.0)),
         };
         self.bodies.push(body);
-        let body = Body {
+        let body = bodies::Body {
             position: Vec3::new(0.0, -1000.0, 0.0),
             orientation: Quat::from_xyzw(0.0, 0.0, 0.0, 1.0),
             linear_velocity: Vec3::ZERO,
@@ -42,7 +42,6 @@ impl Scene {
         for body in &mut self.bodies {
             let mass = 1.0 / body.inv_mass;
             let impulse = GRAVITY * mass * delta;
-            let body_pos = &body.position;
             body.apply_impulse_linear(&impulse);
         }
 
@@ -53,11 +52,9 @@ impl Scene {
                 if body1.inv_mass == 0.0 && body2.inv_mass == 0.0 {
                     continue;
                 }
-                if intersect(body1, body2) {
-                    let b1pos = &body1.position;
-                    let b2pos = &body2.position;
-                    body1.linear_velocity = Vec3::ZERO;
-                    body2.linear_velocity = Vec3::ZERO;
+                let mut contact = bodies::Contact::default();
+                if intersect(body1, body2, &mut contact) {
+                    bodies::resolve_contact(&mut contact);
                 }
             }
         }
@@ -75,7 +72,7 @@ impl Scene {
         mut materials: ResMut<Assets<StandardMaterial>>) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(5.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(2.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
         for (index, body) in scene.bodies.iter().enumerate() {
             body.setup(index, &mut commands, &mut meshes, &mut materials);

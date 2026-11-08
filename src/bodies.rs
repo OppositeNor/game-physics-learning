@@ -8,8 +8,6 @@ fn hash_to_f32(value: usize) -> f32 {
     x ^= x >> 27;
     x = x.wrapping_mul(0x94d049bb133111eb);
     x ^= x >> 31;
-
-    // 取高 24 位，转换成 [0, 1)
     ((x >> 40) as f32) / 16_777_216.0
 }
 
@@ -63,6 +61,21 @@ pub struct Body {
     pub shape: Box<dyn Shape>,
 }
 
+#[derive(Default)]
+pub struct Contact<'a> {
+    pub pt_on_a_ws: Vec3,
+    pub pt_on_a_ls: Vec3,
+    pub pt_on_b_ws: Vec3,
+    pub pt_on_b_ls: Vec3,
+
+    pub normal: Vec3,
+    pub separation_disntance: f32,
+    pub time_of_impact: f32,
+
+    pub a: Option<&'a mut Body>,
+    pub b: Option<&'a mut Body>,
+}
+
 #[derive(Component)]
 pub struct BodyIndex(pub usize);
 
@@ -103,12 +116,36 @@ impl Body {
     }
 }
 
-pub fn intersect(body1: &Body, body2: &Body) -> bool {
-    match (body1.shape.get_type(), body2.shape.get_type()) {
-        (ShapeType::Sphere { radius: r1 }, ShapeType::Sphere { radius: r2 }) => {
-            let length_squared = (body1.position - body2.position).length_squared();
-            let r_sum = r1 + r2;
-            length_squared < r_sum * r_sum
+pub fn intersect<'a>(body_a: &'a mut Body, body_b: &'a mut Body, contact: &mut Contact<'a>) -> bool {
+    match (body_a.shape.get_type(), body_b.shape.get_type()) {
+        (ShapeType::Sphere { radius: r_a }, ShapeType::Sphere { radius: r_b }) => {
+            let (pos_a, pos_b) = (body_a.position, body_b.position);
+            contact.a = Some(body_a);
+            contact.b = Some(body_b);
+            let a_to_b = pos_b - pos_a;
+
+            contact.normal = a_to_b.normalize();
+            contact.pt_on_a_ws = pos_a + contact.normal * r_a;
+            contact.pt_on_b_ws = pos_b - contact.normal * r_b;
+
+            let length_squared = (a_to_b).length_squared();
+            let r_sum = r_a + r_b;
+            length_squared <= r_sum * r_sum
         }
+    }
+}
+
+pub fn resolve_contact(contact: &mut Contact) {
+    if let (Some(a), Some(b)) = (&mut contact.a, &mut contact.b ){
+        a.linear_velocity = Vec3::ZERO;
+        b.linear_velocity = Vec3::ZERO;
+
+        let denom = 1.0f32 / (a.inv_mass + b.inv_mass);
+        let t_a = a.inv_mass / denom;
+        let t_b = b.inv_mass / denom;
+
+        let delta = contact.pt_on_b_ws - contact.pt_on_a_ws;
+        a.position += delta * t_a;
+        b.position -= delta * t_b;
     }
 }
