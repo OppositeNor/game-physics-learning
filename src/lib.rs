@@ -1,6 +1,8 @@
-mod bodies;
+pub mod bodies;
 use bevy::{prelude::*};
 use bodies::{Body, Sphere};
+
+use crate::bodies::intersect;
 
 const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
 
@@ -40,7 +42,24 @@ impl Scene {
         for body in &mut self.bodies {
             let mass = 1.0 / body.inv_mass;
             let impulse = GRAVITY * mass * delta;
+            let body_pos = &body.position;
             body.apply_impulse_linear(&impulse);
+        }
+
+        for i in 0..self.bodies.len() {
+            let (left, right) = self.bodies.split_at_mut(i+1);
+            let body1 = &mut left[i];
+            for body2 in right {
+                if body1.inv_mass == 0.0 && body2.inv_mass == 0.0 {
+                    continue;
+                }
+                if intersect(body1, body2) {
+                    let b1pos = &body1.position;
+                    let b2pos = &body2.position;
+                    body1.linear_velocity = Vec3::ZERO;
+                    body2.linear_velocity = Vec3::ZERO;
+                }
+            }
         }
 
         for body in &mut self.bodies {

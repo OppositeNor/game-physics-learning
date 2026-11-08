@@ -1,7 +1,4 @@
-use std::hash::{DefaultHasher, Hash};
-
 use bevy::prelude::*;
-use rand::{SeedableRng, rngs::StdRng};
 
 fn hash_to_f32(value: usize) -> f32 {
     let mut x = value as u64;
@@ -25,7 +22,7 @@ fn hash_to_color(index: usize) -> Color {
 }
 
 pub enum ShapeType {
-    Sphere,
+    Sphere {radius: f32},
 }
 
 pub trait Shape: Send + Sync  {
@@ -48,7 +45,7 @@ impl Sphere {
 
 impl Shape for Sphere {
     fn get_type(&self) -> ShapeType {
-        ShapeType::Sphere
+        ShapeType::Sphere { radius: self.radius }
     }
     fn com(&self) -> Vec3 {
         Vec3::ZERO
@@ -95,7 +92,6 @@ impl Body {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         materials: &mut ResMut<Assets<StandardMaterial>>) {
-        let mut hasher = DefaultHasher::new();
         commands.spawn((
             self.shape.get_mesh(meshes),
             MeshMaterial3d(
@@ -107,3 +103,12 @@ impl Body {
     }
 }
 
+pub fn intersect(body1: &Body, body2: &Body) -> bool {
+    match (body1.shape.get_type(), body2.shape.get_type()) {
+        (ShapeType::Sphere { radius: r1 }, ShapeType::Sphere { radius: r2 }) => {
+            let length_squared = (body1.position - body2.position).length_squared();
+            let r_sum = r1 + r2;
+            length_squared < r_sum * r_sum
+        }
+    }
+}
